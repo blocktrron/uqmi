@@ -30,11 +30,30 @@ static struct qmi_wds_start_network_request wds_sn_req = {
 };
 static struct qmi_wds_stop_network_request wds_stn_req;
 
+struct uqmi_profile_modify_req {
+	int idx;
+
+	char *apn_name;
+	char *username;
+	char *password;
+
+	struct {
+		QmiWdsPdpType val;
+		bool set;
+	} pdp_type;
+
+	struct {
+		QmiWdsAuthentication val;
+		bool set;
+	} auth;
+} prf_mdf_req;
+
 #define cmd_wds_set_apn_cb no_cb
 static enum qmi_cmd_result
 cmd_wds_set_apn_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
 {
 	qmi_set_ptr(&wds_sn_req, apn, arg);
+	prf_mdf_req.apn_name = arg;
 	return QMI_CMD_DONE;
 }
 
@@ -58,6 +77,9 @@ cmd_wds_set_auth_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qm
 			continue;
 
 		qmi_set(&wds_sn_req, authentication_preference, modes[i].auth);
+
+		prf_mdf_req.auth.set = true;
+		prf_mdf_req.auth.val = modes[i].auth;
 		return QMI_CMD_DONE;
 	}
 
@@ -70,6 +92,7 @@ static enum qmi_cmd_result
 cmd_wds_set_username_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
 {
 	qmi_set_ptr(&wds_sn_req, username, arg);
+	prf_mdf_req.username = arg;
 	return QMI_CMD_DONE;
 }
 
@@ -78,7 +101,35 @@ static enum qmi_cmd_result
 cmd_wds_set_password_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
 {
 	qmi_set_ptr(&wds_sn_req, password, arg);
+	prf_mdf_req.password = arg;
 	return QMI_CMD_DONE;
+}
+
+#define cmd_wds_set_pdp_type_cb no_cb
+static enum qmi_cmd_result
+cmd_wds_set_pdp_type_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	static const struct {
+		const char *name;
+		const QmiWdsPdpType mode;
+	} modes[] = {
+		{ "ipv4", QMI_WDS_PDP_TYPE_IPV4 },
+		{ "ipv6", QMI_WDS_PDP_TYPE_IPV6 },
+		{ "ipv4v6", QMI_WDS_PDP_TYPE_IPV4_OR_IPV6 },
+	};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(modes); i++) {
+		if (strcasecmp(modes[i].name, arg) != 0)
+			continue;
+
+		prf_mdf_req.pdp_type.val = modes[i].mode;
+		prf_mdf_req.pdp_type.set = true;
+		return QMI_CMD_DONE;
+	}
+
+	uqmi_add_error("Invalid value (valid: ipv4, ipv6, ipv4v6)");
+	return QMI_CMD_EXIT;
 }
 
 #define cmd_wds_set_autoconnect_cb no_cb
@@ -123,7 +174,52 @@ cmd_wds_set_profile_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct
 	uint32_t idx = strtoul(arg, NULL, 10);
 
 	qmi_set(&wds_sn_req, profile_index_3gpp, idx);
+	prf_mdf_req.idx = idx;
 	return QMI_CMD_DONE;
+}
+
+static void
+cmd_wds_modify_profile_cb(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg)
+{
+	struct qmi_wds_modify_profile_response res;
+
+	qmi_parse_wds_modify_profile_response(msg, &res);
+	if (res.set.extended_error_code)
+		blobmsg_add_u32(&status, NULL, res.data.extended_error_code);
+}
+
+static enum qmi_cmd_result
+cmd_wds_modify_profile_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+	struct qmi_wds_modify_profile_request wds_mdf_prf_req = {
+		QMI_INIT_SEQUENCE(profile_identifier,
+			.profile_type = QMI_WDS_PROFILE_TYPE_3GPP,
+			.profile_index = prf_mdf_req.idx,
+		),
+	};
+
+	if (!prf_mdf_req.idx) {
+		uqmi_add_error("Profile needs to be specified");
+		return QMI_CMD_EXIT;
+	}
+
+	if (prf_mdf_req.apn_name)
+		qmi_set_ptr(&wds_mdf_prf_req, apn_name, prf_mdf_req.apn_name);
+
+	if (prf_mdf_req.username)
+		qmi_set_ptr(&wds_mdf_prf_req, username, prf_mdf_req.username);
+
+	if (prf_mdf_req.password)
+		qmi_set_ptr(&wds_mdf_prf_req, password, prf_mdf_req.password);
+	
+	if (prf_mdf_req.pdp_type.set)
+		qmi_set(&wds_mdf_prf_req, pdp_type, prf_mdf_req.pdp_type.val);
+
+	if (prf_mdf_req.auth.set)
+		qmi_set(&wds_mdf_prf_req, authentication, prf_mdf_req.auth.val);
+
+	qmi_set_wds_modify_profile_request(msg, &wds_mdf_prf_req);
+	return QMI_CMD_REQUEST;
 }
 
 static void

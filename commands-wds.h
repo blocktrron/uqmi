@@ -29,6 +29,8 @@
 	__uqmi_command(wds_set_autoconnect, autoconnect, no, CMD_TYPE_OPTION), \
 	__uqmi_command(wds_set_profile, profile, required, CMD_TYPE_OPTION), \
 	__uqmi_command(wds_stop_network, stop-network, required, QMI_SERVICE_WDS), \
+	__uqmi_command(wds_modify_profile, modify-profile, no, QMI_SERVICE_WDS), \
+	__uqmi_command(wds_set_pdp_type, pdp-type, required, CMD_TYPE_OPTION), \
 	__uqmi_command(wds_get_packet_service_status, get-data-status, no, QMI_SERVICE_WDS), \
 	__uqmi_command(wds_set_ip_family, set-ip-family, required, QMI_SERVICE_WDS), \
 	__uqmi_command(wds_set_autoconnect_settings, set-autoconnect, required, QMI_SERVICE_WDS), \
@@ -47,6 +49,13 @@
 		"    --profile <index>:              Use connection profile\n" \
 		"  --stop-network <pdh>:             Stop network connection (use with option below)\n" \
 		"    --autoconnect:                  Disable automatic connect/reconnect\n" \
+		"  --modify-profile:                 Modify a profile (use with options below)\n" \
+		"    --profile <index>:              Profile to modify\n" \
+		"    --apn <apn>:                    Use APN\n" \
+		"    --auth-type pap|chap|both|none: Use network authentication type\n" \
+		"    --username <name>:              Use network username\n" \
+		"    --password <password>:          Use network password\n" \
+		"    --pdp-type <family>:            Use PDP type (ipv4, ipv6, ipv4v6)\n" \
 		"  --get-data-status:                Get current data access status\n" \
 		"  --set-ip-family <val>:            Set ip-family (ipv4, ipv6, unspecified)\n" \
 		"  --set-autoconnect <val>:          Set automatic connect/reconnect (disabled, enabled, paused)\n" \
