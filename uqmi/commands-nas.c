@@ -36,17 +36,19 @@ static struct	{
 	bool mnc_is_set;
 } plmn_code_flag;
 
+struct earfcn_info {
+	uint32_t    min;
+	uint32_t    max;
+	uint16_t    band;
+	uint16_t    freq;
+	const char *duplex;
+};
+
 static void
 print_earfcn_info(uint32_t earfcn)
 {
 	/* https://www.sqimway.com/lte_band.php */
-	static const struct {
-		uint32_t    min;
-		uint32_t    max;
-		uint16_t    band;
-		uint16_t    freq;
-		const char *duplex;
-	} earfcn_ranges[] = {
+	static const struct earfcn_info earfcn_ranges_lte[] = {
 		{     0,   599, 1,  2100, "FDD" },
 		{   600,  1199, 2,  1800, "FDD" },
 		{  1200,  1949, 3,  1800, "FDD" },
@@ -91,12 +93,97 @@ print_earfcn_info(uint32_t earfcn)
 		{ 45590, 46589, 44, 700,  "TDD" },
 	};
 
-	for (int i = 0; i < (sizeof(earfcn_ranges) / sizeof(*earfcn_ranges)); i++) {
-		if (earfcn <= earfcn_ranges[i].max && earfcn >= earfcn_ranges[i].min) {
-			blobmsg_add_u32(&status, "band", earfcn_ranges[i].band);
-			blobmsg_add_u32(&status, "frequency", earfcn_ranges[i].freq);
-			blobmsg_add_string(&status, "duplex", earfcn_ranges[i].duplex);
-			return;
+	static const struct earfcn_info earfcn_ranges_nr[] = {
+		{ 422000,  434000, 1,    2100,  "FDD" },
+		{ 386000,  398000, 2,    1900,  "FDD" },
+		{ 361000,  376000, 3,    1800,  "FDD" },
+		{ 173800,  178800, 5,    850,   "FDD" },
+		{ 524000,  538000, 7,    2600,  "FDD" },
+		{ 185000,  192000, 8,    900,   "FDD" },
+		{ 145800,  149200, 12,   700,   "FDD" },
+		{ 149200,  151200, 13,   700,   "FDD" },
+		{ 151600,  153600, 14,   700,   "FDD" },
+		{ 172000,  175000, 18,   800,   "FDD" },
+		{ 158200,  164200, 20,   800,   "FDD" },
+		{ 305000,  311800, 24,   1600,  "FDD" },
+		{ 386000,  399000, 25,   1900,  "FDD" },
+		{ 171800,  178800, 26,   850,   "FDD" },
+		{ 151600,  160600, 28,   700,   "FDD" },
+		{ 143400,  145600, 29,   700,   "SDL" },
+		{ 470000,  472000, 30,   2300,  "FDD" },
+		{ 92500,   93500 , 31,   450,   "FDD" },
+		{ 402000,  405000, 34,   2000,  "TDD" },
+		{ 514000,  524000, 38,   2600,  "TDD" },
+		{ 376000,  384000, 39,   1900,  "TDD" },
+		{ 460000,  480000, 40,   2300,  "TDD" },
+		{ 499200,  537999, 41,   2600,  "TDD" },
+		{ 743334,  795000, 46,   5500,  "TDD" },
+		{ 790334,  795000, 47,   5800,  "TDD" },
+		{ 636667,  646666, 48,   3600,  "TDD" },
+		{ 286400,  303400, 50,   1500,  "TDD" },
+		{ 285400,  286400, 51,   1500,  "TDD" },
+		{ 496700,  499000, 53,   2500,  "TDD" },
+		{ 334000,  335000, 54,   1700,  "TDD" },
+		{ 422000,  440000, 65,   2100,  "FDD" },
+		{ 422000,  440000, 66,   2100,  "FDD" },
+		{ 147600,  151600, 67,   700,   "SDL" },
+		{ 399000,  404000, 70,   2000,  "FDD" },
+		{ 123400,  130400, 71,   600,   "FDD" },
+		{ 92200,   93200 , 72,   450,   "FDD" },
+		{ 295000,  303600, 74,   1500,  "FDD" },
+		{ 286400,  303400, 75,   1500,  "SDL" },
+		{ 285400,  286400, 76,   1500,  "SDL" },
+		{ 620000,  680000, 77,   3700,  "TDD" },
+		{ 620000,  653333, 78,   3500,  "TDD" },
+		{ 693334,  733333, 79,   4700,  "TDD" },
+		{ 342000,  357000, 80,   1800,  "SUL" },
+		{ 176000,  183000, 81,   900,   "SUL" },
+		{ 166400,  172400, 82,   800,   "SUL" },
+		{ 140600,  149600, 83,   700,   "SUL" },
+		{ 384000,  396000, 84,   1900,  "SUL" },
+		{ 145600,  149200, 85,   700,   "FDD" },
+		{ 342000,  356000, 86,   1700,  "SUL" },
+		{ 164800,  169800, 89,   800,   "SUL" },
+		{ 499200,  538000, 90,   2600,  "TDD" },
+		{ 285400,  286400, 91,   1500,  "FDD" },
+		{ 286400,  303400, 92,   1500,  "FDD" },
+		{ 285400,  286400, 93,   1500,  "FDD" },
+		{ 286400,  303400, 94,   1500,  "FDD" },
+		{ 402000,  405000, 95,   2000,  "SUL" },
+		{ 795000,  875000, 96,   6000,  "TDD" },
+		{ 460000,  480000, 97,   2300,  "SUL" },
+		{ 376000,  384000, 98,   1900,  "SUL" },
+		{ 325300,  332100, 99,   1600,  "SUL" },
+		{ 183880,  185000, 100,  900,   "FDD" },
+		{ 380000,  382000, 101,  1900,  "TDD" },
+		{ 795000,  828333, 102,  6000,  "TDD" },
+		{ 828334,  875000, 104,  7000,  "TDD" },
+		{ 122400,  130400, 105,  600,   "FDD" },
+		{ 187000,  188000, 106,  900,   "FDD" },
+		{ 286400,  303400, 109,  1500,  "FDD" },
+		{ 434000,  440000, 256,  2000,  "FDD" },
+		{ 305000,  311800, 255,  1600,  "FDD" },
+		{ 496700,  500000, 254,  2500,  "FDD" },
+
+	};
+
+	if(earfcn <=46589){
+		for (int i = 0; i < (sizeof(earfcn_ranges) / sizeof(*earfcn_ranges)); i++) {
+			if (earfcn <= earfcn_ranges[i].max && earfcn >= earfcn_ranges[i].min) {
+				blobmsg_add_u32(&status, "band", earfcn_ranges[i].band);
+				blobmsg_add_u32(&status, "frequency", earfcn_ranges[i].freq);
+				blobmsg_add_string(&status, "duplex", earfcn_ranges[i].duplex);
+				return;
+			}
+		}
+	} else {
+		for (int i = 0; i < (sizeof(earfcn_ranges_nr) / sizeof(*earfcn_ranges_nr)); i++) {
+			if (earfcn <= earfcn_ranges_nr[i].max && earfcn >= earfcn_ranges_nr[i].min) {
+				blobmsg_add_u32(&status, "band", earfcn_ranges_nr[i].band);
+				blobmsg_add_u32(&status, "frequency", earfcn_ranges_nr[i].freq);
+				blobmsg_add_string(&status, "duplex", earfcn_ranges_nr[i].duplex);
+				return;
+			}
 		}
 	}
 }
@@ -1024,6 +1111,7 @@ cmd_nas_get_cell_location_info_cb(struct qmi_dev *qmi, struct qmi_request *req, 
 		c = blobmsg_open_table(&status, "nr5g_arfcn");
 		blobmsg_add_u32(&status, "arfcn",
 				res.data.nr5g_arfcn);
+		print_earfcn_info(res.data.nr5g_arfcn);
 		blobmsg_close_table(&status, c);
 	}
 	blobmsg_close_table(&status, t);
